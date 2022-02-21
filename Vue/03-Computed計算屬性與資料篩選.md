@@ -1,0 +1,288 @@
+---
+title: 03-Computed計算屬性與資料篩選
+description: 
+published: true
+date: 2021-10-18T02:35:49.495Z
+tags: 
+editor: markdown
+dateCreated: 2021-10-18T02:34:06.464Z
+---
+
+# Computed 是什麼
+有筆者比喻`computed`像是一本食譜，根據食材搭配不同的配料，呈現出各種料理。
+寫好了食譜(function)，有人點餐(被調用)，端菜出去(所以`computed`一定要return一個值出來)。
+
+為什麼會有`computed`的出現，官方表示設計的初衷是為了防止樣板中放入過多的邏輯。
+比如，我今天要把我的名字倒過來的話，
+```javascript
+<template>
+  <h1>
+    {{ name.split('').reverse().join('') }}
+  </h1>
+</template>
+```
+
+如果很多地方都要倒過來，那看專案應該會看得很痛苦，如果使用`computed`的話，我們可以改寫成:
+
+```javascript
+<template>
+  <h1>{{ reverseName }}</h1>
+</template>
+
+<script>
+  export default {
+    data() {
+      return {
+        name: 'hello word',
+      }
+    },
+    computed: {
+      reverseName() {
+        return this.name.split('').reverse().join('');
+      },
+    },
+  }
+</script>
+```
+
+這樣不僅可以讓模板乾淨，也可以在多個地方調用。
+
+# Computed & Watch & Method
+
+## Computed 與 Method
+兩者的寫法好像沒什麼很大的差別，但其實特性有大大的不同。
+
+`Computed` 
+每次調用他時，他會把結果暫存起來，資料沒變動的話就不會觸發`computed`更新，不管取幾次他都會拿暫存的資料給你。在實際使用上，如果寫了個複雜的函式，需要費時1s，如果沒有暫存的話我跳用100次就需要花100s。
+但要注意，他無法傳入參數進去處理。
+
+`Method` 
+不會進行暫存，每次調用都會重新執行，但可以傳入參數進行處理。
+
+```html
+<div id="app">
+    <a @click='handelOpenClass' class="tittle">課程列表</a>
+    <ul class="box" :style="{height: domH}">
+        <li v-for="list in listArr" :key="list.name">
+            {{list.name}}
+        </li>
+    </ul>
+</div>
+```
+
+```javascript
+const { ref, reactive, computed } = Vue;
+const App = {
+    setup() {
+        const isOpen = ref(true);
+        const listArr = reactive([
+            { name:'2020 Vue3 專業職人 | 入門篇', money: 200 },
+            { name:'2020 Vue3 專業職人 | 加值篇',money: 1200 },
+            { name:'2020 Vue3 專業職人 | 進階篇',money: 2000 },
+            { name:'現代Javascript 職人之路 | 入門篇',money: 1400 },
+            { name:'現代Javascript 職人之路 | 中階實戰篇',money: 2800 },
+            { name:'2020 Vue3 專業職人 | 進階篇',money: 3200 },
+            { name:'現代Javascript 職人之路 | 入門篇',money: 800 },
+            { name:'現代Javascript 職人之路 | 中階實戰篇',money: 600 },
+        ]);
+        const handelOpenClass = () => {
+            isOpen.value = !isOpen.value;
+        }
+
+        // Computed 會依據計算資料進行緩存，只要資料沒有被更改，你的computed不會被重新計算。
+        const domH =  computed(() => {
+            return isOpen.value ? `${listArr.length * 40 }px`: 0 ;
+        })
+        
+        // Methods 不會進行緩存，每次都會重新執行，但可以傳入參數進行處理。
+        const domFun = () => {
+            return isOpen.value ? `${listArr.length * 40 }px`: 0 ;
+        }
+
+        return {
+            isOpen,
+            listArr,
+            handelOpenClass,
+            domH,
+        }
+    }
+}
+Vue.createApp(App).mount('#app')
+```
+
+## Computed 與 Watch
+`Computed` 
+是根據依賴的值變更作計算處理。
+
+`Watch`
+是監聽"一個值"變更而做接下來的程序
+
+官方舉例:
+**`watch`** 監聽`firstName`與`lastName`，值變化時去改變`fullName`。
+
+```javascript
+<script>
+  export default {
+    data() {
+      return {
+        firstName: 'Foo',
+        lastName: 'Bar',
+        fullName: 'Foo Bar',
+      }
+    },
+    watch: {
+      firstName(val) {
+        this.fullName = val + ' ' + this.lastName
+      },
+      lastName(val) {
+        this.fullName = this.firstName + ' ' + val
+      },
+    },
+  }
+</script>
+```
+
+**`computed`** 當`firstName`與`lastName`變更時，自動計算出`fullName`。
+
+```javascript
+<script>
+  export default {
+    data() {
+      return {
+        firstName: 'Foo',
+        lastName: 'Bar',
+      }
+    },
+    computed: {
+      fullName() {
+        return this.firstName + ' ' + this.lastName
+      },
+    },
+  }
+</script>
+```
+## 總結
+1.`computed`可以經由依賴的值變化，去計算出一個結果(多對一)；而`watch`則是可以監聽一個值的變化，去做一系列的程序(一對多)
+2.`watch`可以在`callback`裡取出舊值新值做處理。
+3.`computed`擁有暫存的特性。
+
+# getter 與 setter
+在預設下，`computed`是只有`getter`的，也就是一般情況下他是指能讀取不能更改，例如只能點牛肉飯，如果你要改成麵，他就不會做了。
+以下範例可以了解，有加上`setter`做更改處理的差別。
+
+```javascript
+const count = ref(1)
+const plusOne = computed(() => count.value + 1)
+
+console.log(plusOne.value) // 2
+
+plusOne.value++ // error
+```
+
+```javascript
+const count = ref(1)
+const plusOne = computed({
+  get: () => count.value + 1,
+  set: val => {
+    count.value = val - 1
+  }
+})
+
+plusOne.value = 1
+console.log(count.value) // 0
+```
+
+# Computed 應用
+## Computed資料處理
+前面的舉例是根據資料的長度計算出`ul`的高度，資料是一個一個吐到`ul`中。
+如果今天我的資料是需要重組後放到畫面上要怎麼做呢?
+`computed`也可以做資料處理，把組合好的資料端到畫面上:
+
+```javascript
+const isOpen = ref(true);
+const listArr = reactive([
+    { name:'2020 Vue3 專業職人 | 入門篇', money: 200 },
+    { name:'2020 Vue3 專業職人 | 加值篇',money: 1200 },
+    { name:'2020 Vue3 專業職人 | 進階篇',money: 2000 },
+    { name:'現代Javascript 職人之路 | 入門篇',money: 1400 },
+    { name:'現代Javascript 職人之路 | 中階實戰篇',money: 2800 },
+    { name:'2020 Vue3 專業職人 | 進階篇',money: 3200 },
+    { name:'現代Javascript 職人之路 | 入門篇',money: 800 },
+    { name:'現代Javascript 職人之路 | 中階實戰篇',money: 600 },
+]);
+const handelOpenClass = () => {
+    isOpen.value = !isOpen.value;
+}
+
+// Computed 會依據計算資料進行緩存，只要資料沒有被更改，你的computed不會被重新計算。
+const domH = computed(() => {
+    return isOpen.value ? `${listArr.length * 40 }px`: 0 ;
+})
+
+// 用computed重組dom後在吐到畫面
+const newArr = computed(() => {
+    const map = listArr.map(item => {
+        return {cours:`${item.name} $: ${item.money}`}
+    })
+    return map;
+})
+
+return {
+    isOpen,
+    newArr,
+    handelOpenClass,
+    domH,
+}
+```
+
+```html
+<div id="app">
+    <a @click='handelOpenClass' class="tittle">課程列表</a>
+    <ul class="box" :style="{height: domH}">
+        <li v-for="list in newArr" :key="list.name">
+             {{ list.cours}} <!--將組好的項目吐出來 -->
+        </li>
+    </ul>
+</div>
+```
+
+## Computed資料篩選
+延續上面的範例，如果我要挑出1000元以上的課程，要怎麼塞選呢?
+你說可以用`v-for`將資料render，再用`v-if`下條件塞選出來!
+
+你會發現它直接報錯給你，因為`v-if`優先於`v-for`，東西都沒出來，`v-if`是要判斷什麼啦。
+
+這種情況，也可以用`computed`做處理喔~看以下範例:
+
+
+```javascript
+const isOpen = ref(true);
+const listArr = reactive([
+    { name:'2020 Vue3 專業職人 | 入門篇', money: 200 },
+    { name:'2020 Vue3 專業職人 | 加值篇',money: 1200 },
+    { name:'2020 Vue3 專業職人 | 進階篇',money: 2000 },
+    { name:'現代Javascript 職人之路 | 入門篇',money: 400 },
+    { name:'現代Javascript 職人之路 | 中階實戰篇',money: 2800 },
+    { name:'2020 Vue3 專業職人 | 進階篇',money: 3200 },
+    { name:'現代Javascript 職人之路 | 入門篇',money: 800 },
+    { name:'現代Javascript 職人之路 | 中階實戰篇',money: 600 },
+]);
+const handelOpenClass = () => {
+    isOpen.value = !isOpen.value;
+}
+const filterArr = computed(() => {
+    //用fillter將資料塞選出來，在return出去
+    const filter = listArr.filter(item => { return item.money > 1000})
+    return filter
+})
+const domH = computed(() => {
+    return isOpen.value ? `${filterArr.value.length * 40 }px`: 0 ;
+})
+
+return {
+    isOpen,
+    filterArr,
+    handelOpenClass,
+    domH,
+}
+```
